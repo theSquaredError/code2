@@ -12,10 +12,10 @@ class World:
         self.n_quadrants = 8
         self.n_circles = 20
         self.num_vertices = n_concepts
+        torch.manual_seed(10)
         self.locations = (constants.max_DIMENSIONALITY - constants.min_DIMENSIONALITY)*torch.rand(n_concepts, 2) + constants.min_DIMENSIONALITY
         # creating the radiuses of the concentric circles
-        self.radiuses = torch.linspace(0, constants.max_DIMENSIONALITY, steps=self.n_circles)
-
+        self.radiuses = torch.linspace(0, 100, steps=self.n_circles)
 
     @staticmethod
     def quadrant_circle_pair(pairs, source):
@@ -49,9 +49,7 @@ class World:
         # finding the circle
         # c_x,c_y =source[0], source[1] #coordinates of the origin
         distance = torch.sqrt(torch.square(co1) + torch.square(co2))
-        radiuses = torch.linspace(
-            0, constants.max_DIMENSIONALITY, steps=constants.n_segments)
-
+        radiuses = torch.load('radiuses.pt')
         for i, s in enumerate(radiuses):
             if distance<=s.item():
                 segment = i
@@ -60,18 +58,9 @@ class World:
         return octant,segment+101
     
 
-'''
+
 if __name__ == '__main__':
     world = World(10)
-    #  graphvisualisation.graphVisualisation(world.locations)
-    #  print(world.quadrant_circle_pair(world.locations[0]))
-    input_size = 4
-    action_space_size = 3
-    print(world.locations[0], world.locations[3])
-    # x = torch.cat((world.locations[0], world.locations[3]))
-    # print(x.size())
-    # agent = Agent(input_size, action_space_size, world)
+    print(world.locations.numpy())
 
-    # agent(world.locations[0], world.locations[3])
-
-'''
+    
