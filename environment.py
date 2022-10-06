@@ -18,7 +18,10 @@ class Environment(gym.Env):
         self.n_quadrants = 8
         self.n_circles = 20
         self.num_vertices = 10
+        torch.manual_seed(10)
         self.locations = (constants.max_DIMENSIONALITY - constants.min_DIMENSIONALITY)*torch.rand(self.num_vertices, 2) + constants.min_DIMENSIONALITY
+        self.radiuses = torch.linspace(0, 100, steps=self.n_circles)
+        
         
         self.location_quad_map = {}
         self.action_space = spaces.Discrete(3)

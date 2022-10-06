@@ -13,7 +13,7 @@ from torch import Tensor
 import agent_network
 from environment import Environment
 from graph_world import World
-import graphplot
+import utils
 
 class PolicyEstimator():
     def __init__(self, env):
@@ -118,6 +118,12 @@ if __name__ == '__main__':
     # create environment
     X_,Y_, vocabNet, conceptNet = agent_network.initialise(epochs = 10000)
     env = Environment(vocabNet=vocabNet,conceptNet=conceptNet,X_=X_, Y_=Y_)
+
+    # creating graph for all the vertices as agent location 
+    # and storing locations in  file
+    utils.saveGraph(env.locations, env.radiuses)
+
+
     # actually run the algorithm
     policy = PolicyEstimator(env)
     rewards,losses = vanilla_policy_gradient(env, policy, num_episodes=10000)

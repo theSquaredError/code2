@@ -45,13 +45,13 @@ def graphUtil(locations, radiuses, origin, index):
     ax.axline((origin[0],origin[1]), slope= math.tan(math.radians(0)))
     ax.axline((origin[0],origin[1]), slope= math.tan(math.radians(90)))
 
-    plt.savefig('plot_'+ str(index)+'.pdf')
+    plt.savefig('data/'+'plot_'+ str(index)+'.pdf')
     # plt.show()
 
 
 def saveGraph(locations, radiuses):
-    torch.save(radiuses, 'radiuses.pt')
-    torch.save(locations, 'locations.pt')
+    torch.save(radiuses, 'data/radiuses.pt')
+    torch.save(locations, 'data/locations.pt')
     f = open('locations_details.txt',"w")
     for i, loc in enumerate(locations):
         graphUtil(locations, radiuses, loc, i)
