@@ -23,7 +23,7 @@ class PolicyEstimator():
 
         self.network = nn.Sequential(
             nn.Linear(self.num_observations, 16),
-            nn.ReLU(),
+            nn.Sigmoid(),
             nn.Linear(16, self.num_actions),
             nn.Softmax(dim=-1)
         )
@@ -35,29 +35,42 @@ def vanilla_policy_gradient(env, estimator, num_episodes=1, batch_size=10, disco
                             early_exit_reward_amount=None):
     total_rewards, batch_rewards, batch_observations, batch_actions = [], [], [], []
     batch_counter = 1
-
+    epsilon = 0.9
+    ct=0
     optimizer = optim.Adam(estimator.network.parameters(), lr=0.01)
     action_space = np.arange(env.action_space.n) 
     losses = []
     for current_episode in range(num_episodes):
+        print(f"current_episode: {current_episode}")
         observation = env.reset()
         rewards, actions, observations = [], [], []
 
         while True:
             if render:
                 env.render()
-
+            print(f"observation = {observation}")
             # use policy to make predictions and run an action
             t = torch.cat((observation['cur_loc'], observation['target']))
+
+            print(f"action_probs: {estimator.predict(t)}")
             action_probs = estimator.predict(t).detach().numpy()
-            action = np.random.choice(action_space, p=action_probs) # randomly select an action weighted by its probability
-            # print(f"action={action}")
-            # print(f"observation = {observation['target'].tolist()}")
+            
+            # epsilon greedy technique 
+            if np.random.rand() < epsilon and ct<2000:
+                action = np.random.choice(action_space)    
+                ct+=1
+
+            else:
+                action = np.random.choice(action_space, p=action_probs) # randomly select an action weighted by its probability
+
+
+            print(f"action={action}")
             # push all episodic data, move to next observation
             observations.append(t.tolist())
             observation, reward, done = env.step(action)
             rewards.append(reward)
             actions.append(action)
+            print(reward)
 
             if done:
                 # apply discount to rewards
@@ -86,7 +99,8 @@ def vanilla_policy_gradient(env, estimator, num_episodes=1, batch_size=10, disco
                     logprob = torch.log(estimator.predict(batch_observations))
                     # print(f"logprob = {logprob}")
                     # print(f"batch_reward = {batch_rewards}")
-
+                    for param in estimator.network.parameters():
+                        print(param.data)
                     batch_actions = batch_actions.reshape(len(batch_actions), 1)
                     selected_logprobs = batch_rewards * torch.gather(logprob, 1, batch_actions).squeeze()
                     # print(f"selected_logprob = {selected_logprobs}")
@@ -148,7 +162,8 @@ if __name__ == '__main__':
     # print(losses)
     plt.plot(losses)
     plt.ylabel('loss')
-    plt.show()
+    plt.savefig('data/loss_plot.png')
+    plt.close()
 
     # take random target and agent location
     for l1 in env.locations:
@@ -160,8 +175,13 @@ if __name__ == '__main__':
                 target_loc = l2
                 t = torch.cat((agent_loc, target_loc))
                 action_probs = policy.predict(t)
+                print(f"agent_loc: {agent_loc} target_loc: {target_loc}")
+                octant,segment = World.quadrant_circle_pair(target_loc,agent_loc)
+                print(f"octant={octant}, segment={segment}")
+
                 print(action_probs)
+                print("\n")
                 action = np.random.choice(np.arange(env.action_space.n), p=action_probs.detach().numpy())
-                # print(action)
+                #print(action)
 
     # graphplot.plot_graph(env.locations)

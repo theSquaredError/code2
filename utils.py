@@ -21,7 +21,7 @@ def graphUtil(locations, radiuses, origin, index):
 
     ax.set(xlim=(xmin-1, xmax+1), ylim=(ymin-1, ymax+1), aspect='equal')
     ax.spines['bottom'].set_position(('data',origin[1]))
-    ax.spines['left'].set_position(('data', origin[4][0]))
+    ax.spines['left'].set_position(('data', origin[0]))
 
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -46,13 +46,14 @@ def graphUtil(locations, radiuses, origin, index):
     ax.axline((origin[0],origin[1]), slope= math.tan(math.radians(90)))
 
     plt.savefig('data/'+'plot_'+ str(index)+'.pdf')
+    plt.close()
     # plt.show()
 
 
 def saveGraph(locations, radiuses):
     torch.save(radiuses, 'data/radiuses.pt')
     torch.save(locations, 'data/locations.pt')
-    f = open('locations_details.txt',"w")
+    f = open('data/locations_details.txt',"w")
     for i, loc in enumerate(locations):
         graphUtil(locations, radiuses, loc, i)
         f.write(f"{i}: {loc}\n")

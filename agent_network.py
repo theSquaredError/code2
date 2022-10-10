@@ -63,7 +63,7 @@ def train_agent(net, X,Y, learning_rate = 0.01, loss_fn = nn.MSELoss(), epochs =
     for epoch in range(epochs):
         # t = torch.FloatTensor(1).uniform_(-1, 1) #number of concepts = 28
         t2 = truncnorm.rvs(-10, 10, size=1) 
-        index = np.random.choice(28)
+        index = np.random.choice(constants.n_octants+constants.n_segments)
         # input_count.append(index)
         X_ = X[index] +\
         torch.tensor(t2, dtype=torch.float)
@@ -75,7 +75,7 @@ def train_agent(net, X,Y, learning_rate = 0.01, loss_fn = nn.MSELoss(), epochs =
         # print(f"pred sum = {pred_y.sum()}")
         loss = loss_fn(pred_y, Y_)
         losses.append(loss.item())
-        
+
         net.zero_grad()
         loss.backward()
         optimiser.step()
@@ -114,8 +114,9 @@ def initialise(epochs = 10000):
 
 
     # VocabNet : concept -> vocab
-    # input size = output size = 8+20  = constants.n_octants+ constants.n_segments
-    vocabNet = MapNet(28,28)
+    # input size = output size   = constants.n_octants+ constants.n_segments
+    vocab_size = concept_size = constants.n_octants + constants.n_segments
+    vocabNet = MapNet(concept_size,vocab_size)
     
     # print(vocabNet)
 
@@ -142,7 +143,7 @@ def initialise(epochs = 10000):
 
     # Vocab to concepts 
     # this will be used by listener agent
-    conceptNet = MapNet(28, 28)
+    conceptNet = MapNet(vocab_size, concept_size)
     train_agent(conceptNet, X,Y, epochs=epochs)
 
     return X_, Y_, conceptNet, vocabNet

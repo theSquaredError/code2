@@ -49,7 +49,7 @@ class World:
         # finding the circle
         # c_x,c_y =source[0], source[1] #coordinates of the origin
         distance = torch.sqrt(torch.square(co1) + torch.square(co2))
-        radiuses = torch.load('radiuses.pt')
+        radiuses = torch.load('data/radiuses.pt')
         for i, s in enumerate(radiuses):
             if distance<=s.item():
                 segment = i
