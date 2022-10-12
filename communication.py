@@ -72,4 +72,5 @@ class Communication:
 if __name__=='__main__':
     vocab_map = Communication.generate_vocabulary(3,3)
     print(vocab_map)
+
 '''

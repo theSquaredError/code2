@@ -1,3 +1,4 @@
+from timeit import timeit
 from turtle import circle
 import gym
 import matplotlib
@@ -14,9 +15,11 @@ import agent_network
 from environment import Environment
 from graph_world import World
 import utils
+import time
 
-class PolicyEstimator():
+class PolicyEstimator(nn.Module):
     def __init__(self, env):
+        super(PolicyEstimator, self).__init__()
         self.num_observations = env.observation_space['target'].shape[0] + env.observation_space['curr_loc'].shape[0]
         # print(f"num_observation={self.num_observations}")
         self.num_actions = env.action_space.n
@@ -27,12 +30,17 @@ class PolicyEstimator():
             nn.Linear(16, self.num_actions),
             nn.Softmax(dim=-1)
         )
-
-    def predict(self, observation):
+    def forward(self, observation):
         return self.network(observation)
+    def predict(self, observation):
+        return self.forward(observation)
 
-def vanilla_policy_gradient(env, estimator, num_episodes=1, batch_size=10, discount_factor=0.01, render=False,
-                            early_exit_reward_amount=None):
+def vanilla_policy_gradient(env, estimator, num_episodes=1, batch_size=10, discount_factor=0.01, render=False,early_exit_reward_amount=None, device=None):
+
+    if device!=None:
+        print(device)
+        estimator.to(device)
+    estimator.cuda()
     total_rewards, batch_rewards, batch_observations, batch_actions = [], [], [], []
     batch_counter = 1
     epsilon = 0.9
@@ -51,9 +59,12 @@ def vanilla_policy_gradient(env, estimator, num_episodes=1, batch_size=10, disco
             print(f"observation = {observation}")
             # use policy to make predictions and run an action
             t = torch.cat((observation['cur_loc'], observation['target']))
-
-            print(f"action_probs: {estimator.predict(t)}")
-            action_probs = estimator.predict(t).detach().numpy()
+            if device!=None:
+                print(device)
+                t.to(device)
+            
+            print(f"action_probs: {estimator.predict(t.cuda())}")
+            action_probs = estimator.predict(t.cuda()).cpu().detach().numpy()
             
             # epsilon greedy technique 
             if np.random.rand() < epsilon and ct<2000:
@@ -96,13 +107,15 @@ def vanilla_policy_gradient(env, estimator, num_episodes=1, batch_size=10, disco
                     batch_actions = torch.LongTensor(batch_actions)
 
                     # calculate loss
-                    logprob = torch.log(estimator.predict(batch_observations))
+                    if device!=None:
+                        batch_observations.to(device)
+                    logprob = torch.log(estimator.predict(batch_observations.cuda()))
                     # print(f"logprob = {logprob}")
                     # print(f"batch_reward = {batch_rewards}")
                     for param in estimator.network.parameters():
                         print(param.data)
-                    batch_actions = batch_actions.reshape(len(batch_actions), 1)
-                    selected_logprobs = batch_rewards * torch.gather(logprob, 1, batch_actions).squeeze()
+                    batch_actions = batch_actions.reshape(len(batch_actions), 1).cuda()
+                    selected_logprobs = batch_rewards.cuda() * torch.gather(logprob, 1, batch_actions).squeeze()
                     # print(f"selected_logprob = {selected_logprobs}")
                     loss = -selected_logprobs.mean()
                     print(loss.item()*1000)
@@ -128,9 +141,13 @@ def vanilla_policy_gradient(env, estimator, num_episodes=1, batch_size=10, disco
 
     return total_rewards,losses
 
+
 if __name__ == '__main__':
+    st = time.time()
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
     # create environment
-    X_,Y_, vocabNet, conceptNet = agent_network.initialise(epochs = 10000)
+    X_,Y_, vocabNet, conceptNet = agent_network.initialise(epochs = 10000, device=device)
     env = Environment(vocabNet=vocabNet,conceptNet=conceptNet,X_=X_, Y_=Y_)
 
     # creating graph for all the vertices as agent location 
@@ -140,7 +157,7 @@ if __name__ == '__main__':
 
     # actually run the algorithm
     policy = PolicyEstimator(env)
-    rewards,losses = vanilla_policy_gradient(env, policy, num_episodes=10000)
+    rewards,losses = vanilla_policy_gradient(env, policy, num_episodes=10000, device=device)
 
     # moving average
     moving_average_num = 100
@@ -149,6 +166,7 @@ if __name__ == '__main__':
         return (cumsum[n:] - cumsum[:-n]) / float(n)
 
     # plotting
+
     '''
     plt.scatter(np.arange(len(rewards)), rewards, label='individual episodes')
     plt.plot(moving_average(rewards), label=f'moving average of last {moving_average_num} episodes')
@@ -157,7 +175,9 @@ if __name__ == '__main__':
     plt.ylabel('Reward')
     plt.legend()
     plt.show()
+
     '''
+    
     
     # print(losses)
     plt.plot(losses)
@@ -174,7 +194,7 @@ if __name__ == '__main__':
                 agent_loc = l1
                 target_loc = l2
                 t = torch.cat((agent_loc, target_loc))
-                action_probs = policy.predict(t)
+                action_probs = policy.predict(t.cuda())
                 print(f"agent_loc: {agent_loc} target_loc: {target_loc}")
                 octant,segment = World.quadrant_circle_pair(target_loc,agent_loc)
                 print(f"octant={octant}, segment={segment}")
@@ -185,3 +205,9 @@ if __name__ == '__main__':
                 #print(action)
 
     # graphplot.plot_graph(env.locations)
+
+    et = time.time()
+    res = et - st
+    final_res = res / 60
+    print('Execution time:', final_res, 'minutes')
+

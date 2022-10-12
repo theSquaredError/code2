@@ -12,6 +12,8 @@ import numpy as np
 from scipy.stats import truncnorm
 import os
 
+from zmq import device
+
 
 from communication import Communication
 import constants
@@ -56,7 +58,12 @@ def print_loss(losses, learning_rate = 0.01):
     plt.title("Learning rate %f"%(learning_rate))
     plt.show()
 
-def train_agent(net, X,Y, learning_rate = 0.01, loss_fn = nn.MSELoss(), epochs = 1000):
+def train_agent(net, X,Y, learning_rate = 0.01, loss_fn = nn.MSELoss(), epochs = 1000, device =None):
+
+    if device!=None:
+        net.to(device)
+        X.to(device)
+        Y.to(device)
     optimiser = torch.optim.Adam(net.parameters(), lr=learning_rate)
     losses = []
     input_count=[]
@@ -87,7 +94,11 @@ def one_hot_encoded(data):
     temp = np.eye(dim)
     return temp
 
-def train2(net, X,Y,learning_rate = 0.01, loss_fn = nn.MSELoss()):
+def train2(net, X,Y,learning_rate = 0.01, loss_fn = nn.MSELoss(), device = None):
+    if device!=None:
+        net.to(device)
+        X.to(device)
+        Y.to(device)
     optimiser = torch.optim.Adam(net.parameters(), lr=learning_rate)
     for i in range(1):
         pred_y = net(X)
@@ -99,7 +110,7 @@ def train2(net, X,Y,learning_rate = 0.01, loss_fn = nn.MSELoss()):
 
 
 # if __name__ == '__main__':
-def initialise(epochs = 10000):
+def initialise(epochs = 10000, device=None):
     # Getting the mappings
     vocab_map = Communication.generate_vocabulary(constants.n_octants,constants.n_segments)
     # vocab_map = np.array(vocab_map)
@@ -119,7 +130,8 @@ def initialise(epochs = 10000):
     vocabNet = MapNet(concept_size,vocab_size)
     
     # print(vocabNet)
-
+    
+        
     train_agent(vocabNet,X,Y, epochs=epochs)
     # print(X[2])
     # print(vocabNet(X[2]))
@@ -144,6 +156,7 @@ def initialise(epochs = 10000):
     # Vocab to concepts 
     # this will be used by listener agent
     conceptNet = MapNet(vocab_size, concept_size)
+    
     train_agent(conceptNet, X,Y, epochs=epochs)
 
     return X_, Y_, conceptNet, vocabNet
@@ -202,3 +215,8 @@ if __name__ == '__main__':
 
     
 '''
+
+
+if __name__ == "__main__":
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    initialise(device=device)
