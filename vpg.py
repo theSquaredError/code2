@@ -1,5 +1,3 @@
-from timeit import timeit
-from turtle import circle
 import gym
 import matplotlib
 import matplotlib.pyplot as plt
@@ -12,10 +10,12 @@ from torch import optim
 from torch import Tensor
 
 import agent_network
+from checkPrediction import checkPrediction
 from environment import Environment
 from graph_world import World
 import utils
 import time
+import constants
 
 class PolicyEstimator(nn.Module):
     def __init__(self, env):
@@ -38,9 +38,9 @@ class PolicyEstimator(nn.Module):
 def vanilla_policy_gradient(env, estimator, num_episodes=1, batch_size=10, discount_factor=0.01, render=False,early_exit_reward_amount=None, device=None):
 
     if device!=None:
-        print(device)
+        # print(device)
         estimator.to(device)
-    estimator.cuda()
+    # estimator.cuda()
     total_rewards, batch_rewards, batch_observations, batch_actions = [], [], [], []
     batch_counter = 1
     epsilon = 0.9
@@ -49,25 +49,28 @@ def vanilla_policy_gradient(env, estimator, num_episodes=1, batch_size=10, disco
     action_space = np.arange(env.action_space.n) 
     losses = []
     for current_episode in range(num_episodes):
-        print(f"current_episode: {current_episode}")
+
+        print(f"current_episode*************************: {current_episode}")
         observation = env.reset()
         rewards, actions, observations = [], [], []
 
         while True:
             if render:
                 env.render()
-            print(f"observation = {observation}")
+            # print(f"observation = {observation}")
             # use policy to make predictions and run an action
             t = torch.cat((observation['cur_loc'], observation['target']))
             if device!=None:
-                print(device)
+                # print(device)
                 t.to(device)
             
-            print(f"action_probs: {estimator.predict(t.cuda())}")
-            action_probs = estimator.predict(t.cuda()).cpu().detach().numpy()
+            # print(f"action_probs: {estimator.predict(t)}")
+            action_probs = estimator.predict(t).cpu().detach().numpy()
             
             # epsilon greedy technique 
-            if np.random.rand() < epsilon and ct<2000:
+            if np.random.rand() < epsilon and current_episode<constants.exploration_episode:
+                print("exploratioin chosen\n")
+                print(f"action_probs: {action_probs}")
                 action = np.random.choice(action_space)    
                 ct+=1
 
@@ -109,16 +112,18 @@ def vanilla_policy_gradient(env, estimator, num_episodes=1, batch_size=10, disco
                     # calculate loss
                     if device!=None:
                         batch_observations.to(device)
-                    logprob = torch.log(estimator.predict(batch_observations.cuda()))
+                    logprob = torch.log(estimator.predict(batch_observations))
                     # print(f"logprob = {logprob}")
                     # print(f"batch_reward = {batch_rewards}")
+                    '''
                     for param in estimator.network.parameters():
                         print(param.data)
-                    batch_actions = batch_actions.reshape(len(batch_actions), 1).cuda()
-                    selected_logprobs = batch_rewards.cuda() * torch.gather(logprob, 1, batch_actions).squeeze()
+                    '''
+                    batch_actions = batch_actions.reshape(len(batch_actions), 1)
+                    selected_logprobs = batch_rewards * torch.gather(logprob, 1, batch_actions).squeeze()
                     # print(f"selected_logprob = {selected_logprobs}")
                     loss = -selected_logprobs.mean()
-                    print(loss.item()*1000)
+                    # print(loss.item()*1000)
                     losses.append(loss.item()*1000)
                     # backprop/optimize
                     loss.backward()
@@ -143,6 +148,7 @@ def vanilla_policy_gradient(env, estimator, num_episodes=1, batch_size=10, disco
 
 
 if __name__ == '__main__':
+    sys.stdout = open("console_output.txt", "w")
     st = time.time()
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
@@ -157,9 +163,9 @@ if __name__ == '__main__':
 
     # actually run the algorithm
     policy = PolicyEstimator(env)
-    rewards,losses = vanilla_policy_gradient(env, policy, num_episodes=10000, device=device)
+    rewards,losses = vanilla_policy_gradient(env, policy, num_episodes=constants.N_Episodes, device=device)
 
-    # moving average
+    # moving averagell
     moving_average_num = 100
     def moving_average(x, n=moving_average_num):
         cumsum = np.cumsum(np.insert(x, 0, 0))
@@ -184,7 +190,7 @@ if __name__ == '__main__':
     plt.ylabel('loss')
     plt.savefig('data/loss_plot.png')
     plt.close()
-
+    correctPredictions = 0
     # take random target and agent location
     for l1 in env.locations:
         for l2 in env.locations:
@@ -194,20 +200,30 @@ if __name__ == '__main__':
                 agent_loc = l1
                 target_loc = l2
                 t = torch.cat((agent_loc, target_loc))
-                action_probs = policy.predict(t.cuda())
+                action_probs = policy.predict(t)
                 print(f"agent_loc: {agent_loc} target_loc: {target_loc}")
                 octant,segment = World.quadrant_circle_pair(target_loc,agent_loc)
                 print(f"octant={octant}, segment={segment}")
-
                 print(action_probs)
-                print("\n")
                 action = np.random.choice(np.arange(env.action_space.n), p=action_probs.detach().numpy())
-                #print(action)
+                print(f"predicted action = {action}")
+                # check whether action is correct
+                correctPrediction = checkPrediction(action, env, agent_loc, target_loc)
+                print(f"correct prediction = {correctPrediction}")
+                print("\n")
+                print("*********************************************************")
+                if correctPrediction == action:
+                    correctPredictions+=1
 
+                # maxp = np.max(action_probs.detach().numpy())
+                # print(f"action ={np.argmax(action_probs.detach().numpy())} ")
+                
     # graphplot.plot_graph(env.locations)
-
+    print(f"total correct predictions = {correctPredictions}")
     et = time.time()
     res = et - st
     final_res = res / 60
     print('Execution time:', final_res, 'minutes')
+    sys.stdout.close()
+    exit()
 

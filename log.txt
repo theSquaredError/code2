@@ -1,0 +1,3 @@
+
+Experiment 1:
+            every segment has 2 vertices

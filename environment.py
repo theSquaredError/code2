@@ -37,56 +37,36 @@ class Environment(gym.Env):
         return {"cur_loc": self._agent_location, "target": self._target_location}
     
     def step(self, action):
+
         if action == constants.ACTION_GUIDE:
             dist = np.linalg.norm(self._agent_location-self._target_location)
-            reward = 3
+            reward = constants.pos_reward_guide
+
+################# POINT #####################
+        
         if action == constants.ACTION_POINT:
             pointed_segment = 10
             while pointed_segment >=10:
-                pointed_segment = np.random.poisson(lam=1.5)
+                pointed_segment = np.random.poisson(lam=0.5)
 
             pointed_segment+=101
+            print(f"pointed segment = {pointed_segment}")
             # choosing nearby segment
             octant,segment = World.quadrant_circle_pair(self._target_location,self._agent_location)
-            if pointed_segment >103:
-                reward =  -1
+            count = 0
+            for location in self.locations:
+                if location[0] == self._agent_location[0] and location[1] == self._agent_location[1]:
+                    continue
+                else:
+                    quad,seg = World.quadrant_circle_pair(location,self._agent_location)
+                    if quad == octant and seg == pointed_segment:
+                        count +=1
+            reward = constants.neg_reward_point
+            if count ==1:
+                if segment == pointed_segment:
+                    reward = constants.pos_reward_point
 
-            elif pointed_segment == 102:
-                # checking if only 2 locations are in that segment
-                count = 0
-                for location in self.locations:
-                    if location[0] == self._agent_location[0] and location[1] == self._agent_location[1]:
-                        continue
-                    elif location[0] == self._target_location[0] and location[1] == self._target_location[1]:
-                        continue
-                    else:
-                        quad,seg = World.quadrant_circle_pair(location,self._agent_location)
-                        if quad == octant and segment == seg:
-                            count +=1
-                
-                if count >=1:
-                    reward = -1
-                else:
-                    reward = 15
-            elif  pointed_segment == 103:
-                count = 0
-                for location in self.locations:
-                    if location[0] == self._agent_location[0] and location[1] == self._agent_location[1]:
-                        continue
-                    elif location[0] == self._target_location[0] and location[1] == self._target_location[1]:
-                        continue
-                    else:
-                        quad,seg = World.quadrant_circle_pair(location,self._agent_location)
-                        if quad == octant and segment == seg+1:
-                            count +=1
-                
-                if count >=1:
-                    reward = -1
-                else:
-                    reward = 11
-            
-            else:
-                reward = -1
+# ############### UTTERANCE ##################################
 
         if action == constants.ACTION_UTTER:
             # now we perform the utterance and listener has to interpret
@@ -130,21 +110,25 @@ class Environment(gym.Env):
                 pred_seg = np.random.choice(self.X_, p = seg_probs.detach().numpy())
 
                 # only one vertex in the block
+                target_flag = 0
                 count = 0
                 for location in self.locations:
                     if location[0] == self._agent_location[0] and location[1] == self._agent_location[1]:
                         continue
                     elif location[0] == self._target_location[0] and location[1] == self._target_location[1]:
-                        continue
+                        target_flag = 1
                     else:
                         quad,seg = World.quadrant_circle_pair(location,self._agent_location)
-                        if quad == octant and segment == seg+1:
+                        if quad == octant and segment == seg:
+                            # print(f"target quad: {octant} seg: {segment}")
+                            # print(f"location quad: {quad} seg: {seg}")
+
                             count +=1
 
 
-                if pred_oct == octant and pred_seg == segment and count<1:
+                if pred_oct == octant and pred_seg == segment and target_flag == 1 and count == 0:
                     # Listener understood correctly
-                    reward = 12  # some higher reward
+                    reward = constants.pos_reward_utter  # some higher reward
                     #Tweaking the vocabNet and conceptNet
                     agent_network.train2(self.vocabNet,input_oct,vocab_oct)
                     agent_network.train2(self.vocabNet,input_seg,vocab_seg)
@@ -154,9 +138,9 @@ class Environment(gym.Env):
 
                     break
                 else:
-                    reward = -1
+                    reward = constants.neg_reward_utter
         global time
-        if time%10 == 0: 
+        if time%5 == 0: 
             done = True
         else:
             done = False
